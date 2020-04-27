@@ -149,11 +149,12 @@ class GoToGoalNode:
             msg = Bool()
             msg.data = True
             self.goal_achieved_pub.publish(msg)
-
-            self.bool_array[self.goal_index] = True
-            bool_data = BoolArray()
-            bool_data.bools = self.bool_array
-            self.waypoints_achieved_pub.publish(bool_data)
+            
+            if len(self.goal_array) > 0:
+                self.bool_array[self.goal_index] = True
+                bool_data = BoolArray()
+                bool_data.bools = self.bool_array
+                self.waypoints_achieved_pub.publish(bool_data)
 
             # For the seq of goal path
             if (len(self.goal_array) -1 == self.goal_index or len(self.goal_array) == 0):
