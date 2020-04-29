@@ -1,19 +1,8 @@
 <launch>
 
-  <node name="diff_drive_go_to_goal" pkg="diff_drive"
-        type="diff_drive_go_to_goal" output="screen">
-    <param name="~rate" value="20" />
-    <param name="~kP" value="1.0" />
-    <param name="~kA" value="6.0" />
-    <param name="~kB" value="-0.8" />
-    <param name="~max_linear_speed" value="1.1" />
-    <param name="~min_linear_speed" value="0.1" />
-    <param name="~max_angular_speed" value="2.0" />
-    <param name="~min_angular_speed" value="1.0" />
-    <param name="~linear_tolerance" value="0.3" />
-    <param name="~angular_tolerance" value="0.1" />
-    <param name="~forwardMovementOnly" value="false" />
-    <remap from="odom" to="/base_pose_ground_truth" />
+  <node name="diff_drive_go_to_goal" pkg="diff_drive" type="diff_drive_go_to_goal" output="screen">
+    <rosparam command="load" file="$(find diff_drive)/config/diff_drive.yaml"/>
+    <remap from="odom" to="robot_pose_ekf/odom_combined"/>
   </node>
 
 </launch>

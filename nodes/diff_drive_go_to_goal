@@ -4,7 +4,7 @@ from __future__ import division
 import rospy
 from math import pi, asin, acos
 from tf.transformations import euler_from_quaternion
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32, Bool
 import actionlib
@@ -47,7 +47,15 @@ class GoToGoalNode:
         self.node_name = rospy.get_name()
         rospy.loginfo("{0} started".format(self.node_name))
 
-        rospy.Subscriber('odom', Odometry, self.on_odometry)
+        # Subscribes to the given odometry topic
+        odom = rospy.get_param("~pose_topic", {"name":"","type":""})
+        if odom["type"] == "Odometry":
+            rospy.Subscriber(odom["name"], Odometry, self.on_odometry)
+        elif odom["type"] == "PoseWithCovarianceStamped":
+            rospy.Subscriber(odom["name"], PoseWithCovarianceStamped, self.on_odometry)
+        else:
+            rospy.logerr("No odometry topic with the msg type of" + odom["type"])
+        
         rospy.Subscriber('move_base_simple/goal', PoseStamped, self.on_goal)
         rospy.Subscriber('diff_drive/goal_path', GoalPath, self.on_path)
 
@@ -62,30 +70,35 @@ class GoToGoalNode:
         self.rate = rospy.Rate(rate)
         self.dT = 1 / rate
 
-        self.kP = rospy.get_param('~kP', 3.0)
-        self.kA = rospy.get_param('~kA', 8.0)
-        self.kB = rospy.get_param('~kB', -1.5)
+        self.kP = rospy.get_param('~kP', 1.0)
+        self.kA = rospy.get_param('~kA', 6.0)
+        self.kB = rospy.get_param('~kB', -0.8)
         self.controller.set_constants(self.kP, self.kA, self.kB)
 
-        #self.controller.set_linear_tolerance(
-            #rospy.get_param('~linear_tolerance', 0.05))
-        #self.controller.set_angular_tolerance(
-            #rospy.get_param('~angular_tolerance', 3/180*pi))
-
         self.controller.set_max_linear_speed(
-            rospy.get_param('~max_linear_speed', 0.2))
+            rospy.get_param('~max_linear_speed', 1.1))
         self.controller.set_min_linear_speed(
-            rospy.get_param('~min_linear_speed', 0))
+            rospy.get_param('~min_linear_speed', 0.1))
         self.controller.set_max_angular_speed(
-            rospy.get_param('~max_angular_speed', 1.0))
+            rospy.get_param('~max_angular_speed', 2.0))
         self.controller.set_min_angular_speed(
-            rospy.get_param('~min_angular_speed', 0))
+            rospy.get_param('~min_angular_speed', 1.0))
         self.controller.set_max_linear_acceleration(
-            rospy.get_param('~max_linear_acceleration', 0.1))
+            rospy.get_param('~max_linear_acceleration', 1E9))
         self.controller.set_max_angular_acceleration(
-            rospy.get_param('~max_angular_acceleration', 0.3))
+            rospy.get_param('~max_angular_acceleration', 1E9))
+        self.controller.set_linear_tolerance_outer(
+            rospy.get_param('~linear_tolerance_outer', 0.3))
+        self.controller.set_linear_tolerance_inner(
+            rospy.get_param('~linear_tolerance_inner', 0.1))
+        self.controller.set_angular_tolerance_outer(
+            rospy.get_param('~angular_tolerance_outer', 0.2))
+        self.controller.set_angular_tolerance_inner(
+            rospy.get_param('~angular_tolerance_inner', 0.1))
+        self.controller.set_ignore_angular_tolerance(
+            rospy.get_param('~ignore_angular_tolerance', False))
         self.controller.set_forward_movement_only(
-            rospy.get_param('~forwardMovementOnly', True))
+            rospy.get_param('~forwardMovementOnly', False))
 
         self.init_pose()
         self.goal = None
