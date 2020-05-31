@@ -21,4 +21,4 @@ Kp: 1.0
 Ka: 6.0
 Kb: -0.8
 
-pose_topic: {name: "robot_pose_ekf/odom_combined", type: "PoseWithCovarianceStamped"}
+pose_topic: {name: "/global_pose", type: "PoseWithCovarianceStamped"} 
