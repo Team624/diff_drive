@@ -21,4 +21,7 @@ Kp: 1.0
 Ka: 6.0
 Kb: -0.8
 
-pose_topic: {name: "/global_pose", type: "PoseWithCovarianceStamped"} 
+body_width: 0.5969
+wheel_diameter: 0.1524
+
+pose_topic: {name: "/global_pose", type: "PoseWithCovarianceStamped"}
