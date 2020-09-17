@@ -20,8 +20,8 @@ class DiffToMotor:
         self.cmd_vel_data = Twist()
 
         # Publishing data
-        self.left_rpm_pub = rospy.Publisher("cmd_vel/left", Float64, queue_size=50)
-        self.right_rpm_pub = rospy.Publisher("cmd_vel/right", Float64, queue_size=50)
+        self.left_rpm_pub = rospy.Publisher("cmd_vel/left", Float32, queue_size=50)
+        self.right_rpm_pub = rospy.Publisher("cmd_vel/right", Float32, queue_size=50)
 
         self.body_width = rospy.get_param("body_width", 0.5969)
 
@@ -45,8 +45,8 @@ class DiffToMotor:
         right_rpm = (right_distance/self.wheel_circum) * 60.0
         left_rpm = (left_distance/self.wheel_circum) * 60.0
 
-        right_data = Float64()
-        left_data = Float64()
+        right_data = Float32()
+        left_data = Float32()
 
         right_data.data = right_rpm
         left_data.data = left_rpm
