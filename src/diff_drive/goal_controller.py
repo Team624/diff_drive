@@ -24,6 +24,7 @@ class GoalController:
         self.angular_tolerance_inner = 0.1
         self.ignore_angular_tolerance = False
         self.forward_movement_only = False
+        self.end_of_path_stop = True
 
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
@@ -68,6 +69,9 @@ class GoalController:
 
     def set_forward_movement_only(self, forward_only):
         self.forward_movement_only = forward_only
+
+    def set_end_of_path_stop(self, end_of_path_stop):
+        self.end_of_path_stop = end_of_path_stop
     
     def reset_within_tolerance(self):
         self.within_linear_tolerance = False

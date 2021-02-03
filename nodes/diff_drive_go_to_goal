@@ -70,7 +70,7 @@ class GoToGoalNode:
                                          Twist, queue_size=10)
 
         # Set parameters
-        rate = rospy.get_param('~rate', 10.0)
+        rate = rospy.get_param('~rate', 20.0)
         self.rate = rospy.Rate(rate)
         self.dT = 1 / rate
 
@@ -226,6 +226,25 @@ class GoToGoalNode:
         self.goal_array = path.goals
         self.set_path_goal(self.goal_array[self.goal_index])
 
+        # Changes parameters for each goal
+        self.controller.set_constants(path.constants.kP, path.constants.kA, path.constants.kB)
+
+        self.controller.set_max_linear_speed(path.linear.max_linear_speed)
+        self.controller.set_min_linear_speed(path.linear.min_linear_speed)
+        self.controller.set_max_angular_speed(path.angular.max_angular_speed)
+        self.controller.set_min_angular_speed(path.angular.min_angular_speed)
+        self.controller.set_max_linear_acceleration(path.linear.max_linear_acceleration)
+        self.controller.set_max_angular_acceleration(path.angular.max_angular_acceleration)
+
+        self.controller.set_linear_tolerance_outer(path.linear.linear_tolerance_outer)
+        self.controller.set_linear_tolerance_inner(path.linear.linear_tolerance_inner)
+        self.controller.set_angular_tolerance_outer(path.angular.angular_tolerance_outer)
+        self.controller.set_angular_tolerance_inner(path.angular.angular_tolerance_inner)
+        self.controller.set_ignore_angular_tolerance(path.angular.ignore_angular_tolerance)
+
+        self.controller.set_forward_movement_only(path.forward_movement_only)
+        self.controller.set_end_of_path_stop(path.end_of_path_stop)
+
         for x in self.goal_array:
             self.bool_array.append(False)
         
@@ -235,24 +254,6 @@ class GoToGoalNode:
 
     def set_path_goal(self, goal):
         """ This sets a new goal as part of a path """
-
-        # Changes parameters for each goal
-        self.controller.set_constants(goal.constants.kP, goal.constants.kA, goal.constants.kB)
-
-        self.controller.set_max_linear_speed(goal.linear.max_linear_speed)
-        self.controller.set_min_linear_speed(goal.linear.min_linear_speed)
-        self.controller.set_max_angular_speed(goal.angular.max_angular_speed)
-        self.controller.set_min_angular_speed(goal.angular.min_angular_speed)
-        self.controller.set_max_linear_acceleration(goal.linear.max_linear_acceleration)
-        self.controller.set_max_angular_acceleration(goal.angular.max_angular_acceleration)
-
-        self.controller.set_linear_tolerance_outer(goal.linear.linear_tolerance_outer)
-        self.controller.set_linear_tolerance_inner(goal.linear.linear_tolerance_inner)
-        self.controller.set_angular_tolerance_outer(goal.angular.angular_tolerance_outer)
-        self.controller.set_angular_tolerance_inner(goal.angular.angular_tolerance_inner)
-        self.controller.set_ignore_angular_tolerance(goal.angular.ignore_angular_tolerance)
-
-        self.controller.set_forward_movement_only(goal.forward_movement_only)
 
         # Resets the booleans for goal tolerances
         self.controller.reset_within_tolerance()
