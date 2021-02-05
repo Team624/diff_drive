@@ -170,8 +170,13 @@ class GoToGoalNode:
 
         self.send_velocity(desired.xVel, desired.thetaVel)
 
+        if (len(self.goal_array) -1 == self.goal_index):
+            last_goal = True
+        else:
+            last_goal = False
+
         # Forget the goal if achieved.
-        if self.controller.at_goal(self.pose, self.goal):
+        if self.controller.at_goal(self.pose, self.goal, last_goal):
             rospy.loginfo('Goal achieved')
             self.goal = None
             msg = Bool()

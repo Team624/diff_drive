@@ -29,6 +29,8 @@ class GoalController:
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
 
+        self.last_goal = False
+
     def set_constants(self, kP, kA, kB):
         self.kP = kP
         self.kA = kA
@@ -84,7 +86,8 @@ class GoalController:
         diffY = cur.y - goal.y
         return sqrt(diffX*diffX + diffY*diffY)
 
-    def at_goal(self, cur, goal):
+    def at_goal(self, cur, goal, last_goal):
+        self.last_goal = last_goal
         if goal is None:
             return True
         d = self.get_goal_distance(cur, goal)
@@ -98,23 +101,23 @@ class GoalController:
             if (d > self.linear_tolerance_outer):
                 self.within_linear_tolerance = False
 
-        # Uses hysteresis to get closer to correct angle
-        if (not self.within_angular_tolerance):
-            if(dTh < self.angular_tolerance_inner):
-                self.within_angular_tolerance = True
-        else:
-            if (dTh > self.angular_tolerance_outer):
-                self.within_angular_tolerance = False
+        # # Uses hysteresis to get closer to correct angle
+        # if (not self.within_angular_tolerance):
+        #     if(dTh < self.angular_tolerance_inner):
+        #         self.within_angular_tolerance = True
+        # else:
+        #     if (dTh > self.angular_tolerance_outer):
+        #         self.within_angular_tolerance = False
 
-        # Only checks for the linear tolerance
-        if (self.ignore_angular_tolerance):
-            if (self.within_linear_tolerance):
-                self.within_linear_tolerance = False
-                self.within_angular_tolerance = False
-                return True
+        # # Only checks for the linear tolerance
+        # if (self.ignore_angular_tolerance):
+        #     if (self.within_linear_tolerance):
+        #         self.within_linear_tolerance = False
+        #         self.within_angular_tolerance = False
+        #         return True
         
         # Checks for both linear and angular tolerance
-        if (self.within_linear_tolerance and self.within_angular_tolerance):
+        if (self.within_linear_tolerance):
             self.within_linear_tolerance = False
             self.within_angular_tolerance = False
             return True
@@ -130,8 +133,8 @@ class GoalController:
         # In Automomous Mobile Robots, they assume theta_G=0. So for
         # the error in heading, we have to adjust theta based on the
         # (possibly non-zero) goal theta.
-        theta = self.normalize_pi(cur.theta - goal.theta)
-        b = -theta - a
+        # theta = self.normalize_pi(cur.theta - goal.theta)
+        # b = -theta - a
 
         # rospy.loginfo('cur=%f goal=%f a=%f b=%f', cur.theta, goal_heading,
         #               a, b)
@@ -140,20 +143,20 @@ class GoalController:
         if self.forward_movement_only:
             direction = 1
             a = self.normalize_pi(a)
-            b = self.normalize_pi(b)
+            #b = self.normalize_pi(b)
         else:
             direction = self.sign(cos(a))
             a = self.normalize_half_pi(a)
-            b = self.normalize_half_pi(b)
+            #b = self.normalize_half_pi(b)
 
         # rospy.loginfo('After normalization, a=%f b=%f', a, b)
 
-        if self.within_linear_tolerance:
+        if self.within_linear_tolerance and self.end_of_path_stop and self.last_goal:
             desired.xVel = 0
-            desired.thetaVel = self.kB * theta
+            desired.thetaVel = 0 #self.kB * theta
         else:
             desired.xVel = self.kP * d * direction
-            desired.thetaVel = self.kA*a + self.kB*b
+            desired.thetaVel = self.kA*a #+ self.kB*b
 
         # Adjust velocities if X velocity is too high.
         if abs(desired.xVel) > self.max_linear_speed:
