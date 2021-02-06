@@ -22,7 +22,7 @@ class GoToGoalNode:
         # This is a list of all the waypoints in the current path
         self.goal_array = []
         # This is the current waypoint index
-        self.goal_index = 0
+        self.goal_index = 1
 
         # This is an array of completed waypoints in the path
         self.bool_array = []
@@ -119,7 +119,7 @@ class GoToGoalNode:
         msg.data = True
         self.goal_achieved_pub.publish(msg)
         self.goal_array = []
-        self.goal_index = 0
+        self.goal_index = 1
         self.bool_array = []
         self.path_achieved_pub.publish(msg)
 
@@ -192,7 +192,7 @@ class GoToGoalNode:
             # For the seq of goal path
             if (len(self.goal_array) -1 == self.goal_index or len(self.goal_array) == 0):
                 self.goal_array = []
-                self.goal_index = 0
+                self.goal_index = 1
                 self.bool_array = []
                 self.path_achieved_pub.publish(msg)
 

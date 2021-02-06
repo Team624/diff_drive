@@ -91,14 +91,13 @@ class GoalController:
         if goal is None:
             return True
         d = self.get_goal_distance(cur, goal)
-        dTh = abs(self.normalize_pi(cur.theta - goal.theta))
+        dTh = abs(self.normalize_pi(cur.theta - cur.theta))
 
         # Uses hysteresis to get closer to correct position
         if (not self.within_linear_tolerance):
             if(d < self.linear_tolerance_inner):
                 self.within_linear_tolerance = True
-        else:
-            if (d > self.linear_tolerance_outer):
+            else:
                 self.within_linear_tolerance = False
 
         # # Uses hysteresis to get closer to correct angle
@@ -133,8 +132,8 @@ class GoalController:
         # In Automomous Mobile Robots, they assume theta_G=0. So for
         # the error in heading, we have to adjust theta based on the
         # (possibly non-zero) goal theta.
-        # theta = self.normalize_pi(cur.theta - goal.theta)
-        # b = -theta - a
+        theta = self.normalize_pi(cur.theta - cur.theta)
+        b = -theta - a
 
         # rospy.loginfo('cur=%f goal=%f a=%f b=%f', cur.theta, goal_heading,
         #               a, b)
@@ -143,31 +142,31 @@ class GoalController:
         if self.forward_movement_only:
             direction = 1
             a = self.normalize_pi(a)
-            #b = self.normalize_pi(b)
+            b = self.normalize_pi(b)
         else:
             direction = self.sign(cos(a))
             a = self.normalize_half_pi(a)
-            #b = self.normalize_half_pi(b)
+            b = self.normalize_half_pi(b)
 
         # rospy.loginfo('After normalization, a=%f b=%f', a, b)
 
         if self.within_linear_tolerance and self.end_of_path_stop and self.last_goal:
             desired.xVel = 0
-            desired.thetaVel = 0 #self.kB * theta
+            desired.thetaVel = self.kB * theta
         else:
-            desired.xVel = self.kP * d * direction
-            desired.thetaVel = self.kA*a #+ self.kB*b
+            desired.xVel = self.kP * direction
+            desired.thetaVel = self.kA*a + self.kB*b
 
         # Adjust velocities if X velocity is too high.
         if abs(desired.xVel) > self.max_linear_speed:
             ratio = self.max_linear_speed / abs(desired.xVel)
             desired.xVel *= ratio
-            #desired.thetaVel *= ratio
+            desired.thetaVel *= ratio
 
         # Adjust velocities if turning velocity too high.
         if abs(desired.thetaVel) > self.max_angular_speed:
             ratio = self.max_angular_speed / abs(desired.thetaVel)
-            #desired.xVel *= ratio
+            desired.xVel *= ratio
             desired.thetaVel *= ratio
 
         # TBD: Adjust velocities if linear or angular acceleration
@@ -177,10 +176,10 @@ class GoalController:
         if abs(desired.xVel) > 0 and abs(desired.xVel) < self.min_linear_speed:
             ratio = self.min_linear_speed / abs(desired.xVel)
             desired.xVel *= ratio
-            #desired.thetaVel *= ratio
+            desired.thetaVel *= ratio
         if desired.xVel==0 and abs(desired.thetaVel) < self.min_angular_speed:
             ratio = self.min_angular_speed / abs(desired.thetaVel)
-            #desired.xVel *= ratio
+            desired.xVel *= ratio
             desired.thetaVel *= ratio
         #print("Theta vel:", str(desired.thetaVel))
         #print("Min theta:", str(self.min_angular_speed))
