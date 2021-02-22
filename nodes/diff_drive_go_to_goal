@@ -79,6 +79,8 @@ class GoToGoalNode:
         self.kB = rospy.get_param('~kB', -0.8)
         self.controller.set_constants(self.kP, self.kA, self.kB)
 
+        self.vel = 0
+
         # Set defualt parameters
         self.controller.set_max_linear_speed(
             rospy.get_param('~max_linear_speed', 1.1))
@@ -211,6 +213,7 @@ class GoToGoalNode:
     def on_odometry(self, newPose):
         """ Updates the robot pose """
         self.pose = self.get_angle_pose(newPose.pose.pose)
+        self.vel = newPose.twist.twist.linear.x
 
     def on_goal(self, goal):
         """ Waits for single goal from topic """
