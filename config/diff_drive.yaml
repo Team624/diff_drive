@@ -1,4 +1,4 @@
-rate: 20
+rate: 50
 
 max_linear_speed: 1.1
 min_linear_speed: 0.1
@@ -25,3 +25,5 @@ body_width: 0.5969
 wheel_diameter: 0.1524
 
 pose_topic: {name: "/global_pose", type: "PoseWithCovarianceStamped"}
+
+odom_topic: "/sim_odom"

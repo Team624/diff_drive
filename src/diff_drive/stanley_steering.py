@@ -13,7 +13,7 @@ from diff_drive.pose import Pose
 from math import pi, sqrt, sin, cos, atan2
 
 class StanleySteering:
-    def __init__(self, ax, ay, target_speed, k = 0.5, Kp = 1.0, dt = 0.5, L = 2.9, max_steer = np.radians(30.0), show_animation = True):
+    def __init__(self, ax = [0, 1], ay = [0, 1], target_speed = 2.0, k = 0.5, Kp = 1.0, dt = 0.5, L = 0.5842, max_steer = np.radians(30.0), show_animation = True):
         self.k = k  # control gain
         self.Kp = Kp  # speed proportional gain
         self.dt = dt  # [s] time difference
@@ -33,14 +33,13 @@ class StanleySteering:
 
         # Initial state
         self.state = Pose()
-        self.vel = 0.0
 
         self.last_idx = len(self.cx) - 1
         self.time = 0.0
         self.x = [self.state.x]
         self.y = [self.state.y]
-        self.yaw = [self.state.yaw]
-        self.v = [self.state.v]
+        self.theta = [self.state.theta]
+        self.v = [self.state.xVel]
         self.t = [0.0]
         self.target_idx, _ = self.calc_target_index()
 
@@ -61,10 +60,39 @@ class StanleySteering:
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
 
+    def set_path(self, ax = [0,1], ay = [0,1], target_speed = 2.0, L = 0.5842, max_steer = np.radians(30.0), show_animation = True):
+        self.k = 0  # control gain
+        self.Kp = 0  # speed proportional gain
+        self.dt = 0  # [s] time difference
+        self.L = L  # [m] Wheel base of vehicle
+        self.max_steer = max_steer  # [rad] max steering angle
+
+        self.show_animation = show_animation
+
+        #  target course
+        self.ax = ax
+        self.ay = ay
+
+        self.cx, self.cy, self.cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+            self.ax, self.ay, ds=0.1)
+
+        self.target_speed = target_speed  # [m/s]
+
+         # Initial state
+        self.state = Pose()
+
+        self.last_idx = len(self.cx) - 1
+        self.time = 0.0
+        self.x = [self.state.x]
+        self.y = [self.state.y]
+        self.theta = [self.state.theta]
+        self.v = [self.state.xVel]
+        self.t = [0.0]
+        self.target_idx, _ = self.calc_target_index()
 
     # Parameters
-    def set_constants(self, kP, k):
-        self.kP = kP
+    def set_constants(self, Kp, k, blank):
+        self.Kp = Kp
         self.k = k
 
     def set_max_linear_speed(self, speed):
@@ -161,9 +189,9 @@ class StanleySteering:
             current_target_idx = self.target_idx
 
         # theta_e corrects the heading error
-        theta_e = self.normalize_angle(self.cyaw[current_target_idx] - self.state.theta)
+        theta_e = self.normalize_angle(self.cyaw[current_target_idx] - self.normalize_angle(self.state.theta))
         # theta_d corrects the cross track error
-        theta_d = np.arctan2(self.k * error_front_axle, self.vel)
+        theta_d = np.arctan2(self.k * error_front_axle, self.state.xVel)
         # Steering control
         delta = theta_e + theta_d
 
@@ -194,8 +222,8 @@ class StanleySteering:
         :return: (int, float)
         """
         # Calc front axle position
-        fx = self.state.x + self.L * np.cos(self.state.theta)
-        fy = self.state.y + self.L * np.sin(self.state.theta)
+        fx = self.state.x + self.L * np.cos(self.normalize_angle(self.state.theta))
+        fy = self.state.y + self.L * np.sin(self.normalize_angle(self.state.theta))
 
         # Search nearest point index
         dx = [fx - icx for icx in self.cx]
@@ -204,58 +232,47 @@ class StanleySteering:
         target_idx = np.argmin(d)
 
         # Project RMS error onto front axle vector
-        front_axle_vec = [-np.cos(self.state.theta + np.pi / 2),
-                        -np.sin(self.state.theta + np.pi / 2)]
+        front_axle_vec = [-np.cos(self.normalize_angle(self.state.theta) + np.pi / 2),
+                        -np.sin(self.normalize_angle(self.state.theta) + np.pi / 2)]
         error_front_axle = np.dot([dx[target_idx], dy[target_idx]], front_axle_vec)
 
         return target_idx, error_front_axle
 
 
-    def get_velocity(self, vel, pose):
+    def get_velocity(self, pose, vel):
         """Plot an example of Stanley steering control on a cubic spline."""
-        self.state = pose
-        self.vel = vel
-        if self.last_idx > self.target_idx:
-            ai = self.pid_control(self.target_speed, self.state.v)
-            di, target_idx = self.stanley_control()
-            #self.state.update(ai, di)
+        desired = Pose()
+        self.state.x = pose.x 
+        self.state.y = pose.y 
+        self.state.theta = pose.theta
+        self.state.xVel = vel
 
+        if self.last_idx > self.target_idx:
+            ai = self.pid_control(self.target_speed, self.state.xVel)
+            di, self.target_idx = self.stanley_control()
+            
+            desired.xVel = self.state.xVel + ai
+            desired.thetaVel = self.state.xVel / self.L * np.tan(di)
+
+            print(desired.thetaVel)
             self.time += self.dt
 
             self.x.append(self.state.x)
             self.y.append(self.state.y)
-            self.yaw.append(self.state.yaw)
-            self.v.append(self.state.v)
+            self.theta.append(self.state.theta)
+            self.v.append(self.state.xVel)
             self.t.append(self.time)
 
-            if self.show_animation:  # pragma: no cover
-                plt.cla()
-                # for stopping simulation with the esc key.
-                plt.gcf().canvas.mpl_connect('key_release_event',
-                        lambda event: [exit(0) if event.key == 'escape' else None])
-                plt.plot(self.cx, self.cy, ".r", label="course")
-                plt.plot(self.x, self.y, "-b", label="trajectory")
-                plt.plot(self.cx[self.target_idx], self.cy[self.target_idx], "xg", label="target")
-                plt.axis("equal")
-                plt.grid(True)
-                plt.title("Speed[km/h]:" + str(self.state.v * 3.6)[:4])
-                plt.pause(0.001)
-
-        # Test
-        assert self.last_idx >= self.target_idx, "Cannot reach goal"
-
-        if self.show_animation:  # pragma: no cover
-            plt.plot(self.cx, self.cy, ".r", label="course")
-            plt.plot(self.x, self.y, "-b", label="trajectory")
-            plt.legend()
-            plt.xlabel("x[m]")
-            plt.ylabel("y[m]")
-            plt.axis("equal")
-            plt.grid(True)
-
-            plt.subplots(1)
-            plt.plot(self.t, [iv * 3.6 for iv in self.v], "-r")
-            plt.xlabel("Time[s]")
-            plt.ylabel("Speed[km/h]")
-            plt.grid(True)
-            plt.show()
+            # if self.show_animation:  # pragma: no cover
+            #     plt.cla()
+            #     # for stopping simulation with the esc key.
+            #     plt.gcf().canvas.mpl_connect('key_release_event',
+            #             lambda event: [exit(0) if event.key == 'escape' else None])
+            #     plt.plot(self.cx, self.cy, ".r", label="course")
+            #     plt.plot(self.x, self.y, "-b", label="trajectory")
+            #     plt.plot(self.cx[self.target_idx], self.cy[self.target_idx], "xg", label="target")
+            #     plt.axis("equal")
+            #     plt.grid(True)
+            #     plt.title("Speed[km/h]:" + str(self.state.xVel * 3.6)[:4])
+            #     plt.pause(0.001)
+        return desired

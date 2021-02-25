@@ -10,6 +10,7 @@ from std_msgs.msg import Float32, Bool
 import actionlib
 
 from diff_drive import goal_controller
+from diff_drive import stanley_steering
 from diff_drive import pose
 from diff_drive.msg import GoToPoseAction, GoToPoseGoal, GoToPoseResult
 from diff_drive.msg import GoalPath, BoolArray
@@ -17,7 +18,7 @@ from diff_drive.msg import GoalPath, BoolArray
 class GoToGoalNode:
 
     def __init__(self):
-        self.controller = goal_controller.GoalController()
+        self.controller = stanley_steering.StanleySteering(show_animation=False)
 
         # This is a list of all the waypoints in the current path
         self.goal_array = []
@@ -44,14 +45,16 @@ class GoToGoalNode:
         rospy.loginfo("{0} started".format(self.node_name))
 
         # Subscribers
-        odom = rospy.get_param("~pose_topic", {"name":"","type":""})
-        if odom["type"] == "Odometry":
-            rospy.Subscriber(odom["name"], Odometry, self.on_odometry)
-        elif odom["type"] == "PoseWithCovarianceStamped":
-            rospy.Subscriber(odom["name"], PoseWithCovarianceStamped, self.on_odometry)
+        pose = rospy.get_param("~pose_topic", {"name":"","type":""})
+        if pose["type"] == "Odometry":
+            rospy.Subscriber(pose["name"], Odometry, self.on_odometry)
+        elif pose["type"] == "PoseWithCovarianceStamped":
+            rospy.Subscriber(pose["name"], PoseWithCovarianceStamped, self.on_odometry)
         else:
-            rospy.logerr("No odometry topic with the msg type of" + odom["type"])
+            rospy.logerr("No odometry topic with the msg type of" + pose["type"])
         
+        odom = rospy.get_param("~odom_topic", "")
+        rospy.Subscriber(odom, Odometry, self.on_velocity)
         rospy.Subscriber('move_base_simple/goal', PoseStamped, self.on_goal)
         rospy.Subscriber('diff_drive/goal_path', GoalPath, self.on_path)
 
@@ -164,10 +167,9 @@ class GoToGoalNode:
     def publish(self):
         """ The main loop when following a path or goal """
         
-        desired = self.controller.get_velocity(self.pose, self.goal,
-                                                   self.dT)
+        desired = self.controller.get_velocity(self.pose, self.vel)
 
-        d = self.controller.get_goal_distance(self.pose, self.goal)
+        d = self.controller.get_goal_distance()
         self.dist_pub.publish(d)
 
         self.send_velocity(desired.xVel, desired.thetaVel)
@@ -178,7 +180,7 @@ class GoToGoalNode:
             last_goal = False
 
         # Forget the goal if achieved.
-        if self.controller.at_goal(self.pose, self.goal, last_goal):
+        if self.controller.at_goal():
             rospy.loginfo('Goal achieved')
             self.goal = None
             msg = Bool()
@@ -213,7 +215,9 @@ class GoToGoalNode:
     def on_odometry(self, newPose):
         """ Updates the robot pose """
         self.pose = self.get_angle_pose(newPose.pose.pose)
-        self.vel = newPose.twist.twist.linear.x
+
+    def on_velocity(self, newVel):
+        self.vel = newVel.twist.twist.linear.x
 
     def on_goal(self, goal):
         """ Waits for single goal from topic """
@@ -231,8 +235,18 @@ class GoToGoalNode:
     
     def on_path(self, path):
         """ Creates a new path to be followed """
-        self.goal_array = path.goals
-        self.set_path_goal(self.goal_array[self.goal_index])
+        self.goal_array = [path.goals[len(path.goals) -1]]
+        self.set_path_goal(self.goal_array[0])
+
+        # Creates path
+        ax = []
+        ay = []
+
+        for a in path.goals:
+            ax.append(a.pose.position.x)
+            ay.append(a.pose.position.y)
+
+        self.controller.set_path(ax = ax, ay = ay)
 
         # Changes parameters for each goal
         self.controller.set_constants(path.constants.kP, path.constants.kA, path.constants.kB)
@@ -253,8 +267,7 @@ class GoToGoalNode:
         self.controller.set_forward_movement_only(path.forward_movement_only)
         self.controller.set_end_of_path_stop(path.end_of_path_stop)
 
-        for x in self.goal_array:
-            self.bool_array.append(False)
+        self.bool_array.append(False)
         
         bool_data = BoolArray()
         bool_data.bools = self.bool_array
