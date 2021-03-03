@@ -154,8 +154,8 @@ class GoToGoalNode:
         self.action_server.set_succeeded(result)
         
         # Sets a new goal
-        if (len(self.goal_array) >= 1 and self.goal is None):
-            self.set_path_goal(self.goal_array[self.goal_index])
+        # if (len(self.goal_array) >= 1 and self.goal is None):
+        #     self.set_path_goal(self.goal_array[self.goal_index])
 
     def init_pose(self):
         """ Sets the initail pose before being updated """
@@ -186,9 +186,11 @@ class GoToGoalNode:
             msg = Bool()
             msg.data = True
             self.goal_achieved_pub.publish(msg)
+
+            self.send_velocity(0, 0)
             
             if len(self.goal_array) > 0:
-                self.bool_array[self.goal_index] = True
+                #self.bool_array[self.goal_index] = True
                 bool_data = BoolArray()
                 bool_data.bools = self.bool_array
                 self.waypoints_achieved_pub.publish(bool_data)

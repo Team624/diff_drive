@@ -13,7 +13,7 @@ from diff_drive.pose import Pose
 from math import pi, sqrt, sin, cos, atan2
 
 class StanleySteering:
-    def __init__(self, ax = [0, 1], ay = [0, 1], target_speed = 2.0, k = 0.5, Kp = 1.0, dt = 0.5, L = 0.5842, max_steer = np.radians(30.0), show_animation = True):
+    def __init__(self, ax = [0, 1], ay = [0, 1], target_speed = 2.0, k = 0.5, Kp = 1.0, dt = 0.5, L = 0.5842, max_steer = np.radians(30), show_animation = True):
         self.k = k  # control gain
         self.Kp = Kp  # speed proportional gain
         self.dt = dt  # [s] time difference
@@ -41,7 +41,9 @@ class StanleySteering:
         self.theta = [self.state.theta]
         self.v = [self.state.xVel]
         self.t = [0.0]
-        self.target_idx, _ = self.calc_target_index()
+        self.target_idx = 0
+
+        print("CX", self.last_idx)
 
         # Parameters
         self.max_linear_speed = 1.1
@@ -60,10 +62,7 @@ class StanleySteering:
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
 
-    def set_path(self, ax = [0,1], ay = [0,1], target_speed = 2.0, L = 0.5842, max_steer = np.radians(30.0), show_animation = True):
-        self.k = 0  # control gain
-        self.Kp = 0  # speed proportional gain
-        self.dt = 0  # [s] time difference
+    def set_path(self, ax = [0,1], ay = [0,1], target_speed = 2.0, L = 0.5842, max_steer = np.radians(30), show_animation = True):
         self.L = L  # [m] Wheel base of vehicle
         self.max_steer = max_steer  # [rad] max steering angle
 
@@ -82,13 +81,14 @@ class StanleySteering:
         self.state = Pose()
 
         self.last_idx = len(self.cx) - 1
+        print("CX", self.cx)
         self.time = 0.0
         self.x = [self.state.x]
         self.y = [self.state.y]
         self.theta = [self.state.theta]
         self.v = [self.state.xVel]
         self.t = [0.0]
-        self.target_idx, _ = self.calc_target_index()
+        self.target_idx, _ = 0,0
 
     # Parameters
     def set_constants(self, Kp, k, blank):
@@ -185,7 +185,7 @@ class StanleySteering:
         """
         current_target_idx, error_front_axle = self.calc_target_index()
 
-        if self.target_idx >= current_target_idx:
+        if self.target_idx >= current_target_idx and self.state.x != 0:
             current_target_idx = self.target_idx
 
         # theta_e corrects the heading error
@@ -223,14 +223,19 @@ class StanleySteering:
         """
         # Calc front axle position
         fx = self.state.x + self.L * np.cos(self.normalize_angle(self.state.theta))
-        fy = self.state.y + self.L * np.sin(self.normalize_angle(self.state.theta))
+        fy = self.state.y - self.L * np.sin(self.normalize_angle(self.state.theta))
+        print(self.state.y, fy)
 
+        print("CX + CY",self.cx,self.cy)
         # Search nearest point index
         dx = [fx - icx for icx in self.cx]
         dy = [fy - icy for icy in self.cy]
+        
+        print("DX and DY", dx, dy)
         d = np.hypot(dx, dy)
         target_idx = np.argmin(d)
-
+        # Not for the minimum
+        print(d)
         # Project RMS error onto front axle vector
         front_axle_vec = [-np.cos(self.normalize_angle(self.state.theta) + np.pi / 2),
                         -np.sin(self.normalize_angle(self.state.theta) + np.pi / 2)]
@@ -242,11 +247,15 @@ class StanleySteering:
     def get_velocity(self, pose, vel):
         """Plot an example of Stanley steering control on a cubic spline."""
         desired = Pose()
+        print("Position of robot", self.state.x,self.state.y)
         self.state.x = pose.x 
         self.state.y = pose.y 
         self.state.theta = pose.theta
         self.state.xVel = vel
 
+        print("In get_velcoty loop")
+
+        print(self.last_idx,self.target_idx)
         if self.last_idx > self.target_idx:
             ai = self.pid_control(self.target_speed, self.state.xVel)
             di, self.target_idx = self.stanley_control()
@@ -254,7 +263,7 @@ class StanleySteering:
             desired.xVel = self.state.xVel + ai
             desired.thetaVel = self.state.xVel / self.L * np.tan(di)
 
-            print(desired.thetaVel)
+            print("STAN: from get_velocity", desired.xVel)
             self.time += self.dt
 
             self.x.append(self.state.x)
