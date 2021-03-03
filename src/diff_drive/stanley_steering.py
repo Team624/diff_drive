@@ -46,6 +46,7 @@ class StanleySteering:
         print("Index", self.last_idx)
 
         self.is_at_goal = True
+        self.direction = 1
 
         # Parameters
         self.max_linear_speed = 1.1
@@ -70,11 +71,9 @@ class StanleySteering:
 
         self.show_animation = show_animation
 
-        print("REEEEEEEEEEEEEE",pose.x, pose.y)
         self.state.x = pose.x 
         self.state.y = pose.y 
         self.state.theta = pose.theta
-        print("After ree",self.state.x, self.state.y)
 
         #  target course
         self.ax = ax
@@ -139,6 +138,11 @@ class StanleySteering:
 
     def set_forward_movement_only(self, forward_only):
         self.forward_movement_only = forward_only
+        if (forward_only):
+            self.direction = 1
+        else:
+            self.direction = -1
+            self.target_speed = -self.target_speed
 
     def set_end_of_path_stop(self, end_of_path_stop):
         self.end_of_path_stop = end_of_path_stop
@@ -192,8 +196,7 @@ class StanleySteering:
         # Steering control
         delta = theta_e + theta_d
 
-        if (not self.forward_movement_only):
-            delta*=-1
+        delta = delta * self.direction
 
         return delta, current_target_idx
 
