@@ -43,7 +43,9 @@ class StanleySteering:
         self.t = [0.0]
         self.target_idx = 0
 
-        print("CX", self.last_idx)
+        print("Index", self.last_idx)
+
+        self.is_at_goal = True
 
         # Parameters
         self.max_linear_speed = 1.1
@@ -62,11 +64,17 @@ class StanleySteering:
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
 
-    def set_path(self, ax = [0,1], ay = [0,1], target_speed = 2.0, L = 0.5842, max_steer = np.radians(30), show_animation = True):
+    def set_path(self, pose, ax = [0,1], ay = [0,1], target_speed = 2.0, L = 0.5842, max_steer = np.radians(30), show_animation = True):
         self.L = L  # [m] Wheel base of vehicle
         self.max_steer = max_steer  # [rad] max steering angle
 
         self.show_animation = show_animation
+
+        print("REEEEEEEEEEEEEE",pose.x, pose.y)
+        self.state.x = pose.x 
+        self.state.y = pose.y 
+        self.state.theta = pose.theta
+        print("After ree",self.state.x, self.state.y)
 
         #  target course
         self.ax = ax
@@ -75,21 +83,22 @@ class StanleySteering:
         self.cx, self.cy, self.cyaw, ck, s = cubic_spline_planner.calc_spline_course(
             self.ax, self.ay, ds=0.1)
 
+        # self.cx.append(self.cx[len(self.cx)-1])
+        # self.cy.append(self.cy[len(self.cy)-1])
+        # self.cyaw.append(self.cyaw[len(self.cyaw)-1])
+
         self.target_speed = target_speed  # [m/s]
 
-         # Initial state
-        self.state = Pose()
-
         self.last_idx = len(self.cx) - 1
-        print("CX", self.cx)
+
         self.time = 0.0
         self.x = [self.state.x]
         self.y = [self.state.y]
         self.theta = [self.state.theta]
         self.v = [self.state.xVel]
         self.t = [0.0]
-        self.target_idx, _ = 0,0
-
+        self.target_idx, _ = self.calc_target_index()
+        print("target Index", self.target_idx, "Pose", self.state.x, self.state.y)
     # Parameters
     def set_constants(self, Kp, k, blank):
         self.Kp = Kp
@@ -138,7 +147,10 @@ class StanleySteering:
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
 
-
+    def reset(self):
+        if self.end_of_path_stop:
+            return True
+        return False
 
     def get_goal_distance(self):
         diffX = self.state.x - self.cx[len(self.cx) -1]
@@ -146,22 +158,7 @@ class StanleySteering:
         return sqrt(diffX*diffX + diffY*diffY)
 
     def at_goal(self):
-        d = self.get_goal_distance()
-
-        # Uses hysteresis to get closer to correct position
-        if (not self.within_linear_tolerance):
-            if(d < self.linear_tolerance_inner):
-                self.within_linear_tolerance = True
-            else:
-                self.within_linear_tolerance = False
-        
-        # Checks for both linear and angular tolerance
-        if (self.within_linear_tolerance):
-            self.within_linear_tolerance = False
-            self.within_angular_tolerance = False
-            return True
-
-        return False
+        return self.is_at_goal
 
     def pid_control(self, target, current):
         """
@@ -195,6 +192,9 @@ class StanleySteering:
         # Steering control
         delta = theta_e + theta_d
 
+        if (not self.forward_movement_only):
+            delta*=-1
+
         return delta, current_target_idx
 
 
@@ -224,14 +224,12 @@ class StanleySteering:
         # Calc front axle position
         fx = self.state.x + self.L * np.cos(self.normalize_angle(self.state.theta))
         fy = self.state.y - self.L * np.sin(self.normalize_angle(self.state.theta))
-        print(self.state.y, fy)
-
-        print("CX + CY",self.cx,self.cy)
+    
         # Search nearest point index
         dx = [fx - icx for icx in self.cx]
         dy = [fy - icy for icy in self.cy]
         
-        print("DX and DY", dx, dy)
+
         d = np.hypot(dx, dy)
         target_idx = np.argmin(d)
         # Not for the minimum
@@ -247,16 +245,18 @@ class StanleySteering:
     def get_velocity(self, pose, vel):
         """Plot an example of Stanley steering control on a cubic spline."""
         desired = Pose()
-        print("Position of robot", self.state.x,self.state.y)
         self.state.x = pose.x 
         self.state.y = pose.y 
         self.state.theta = pose.theta
         self.state.xVel = vel
 
+        print("Position of robot", self.state.x,self.state.y)
+
         print("In get_velcoty loop")
 
-        print(self.last_idx,self.target_idx)
+        print("LAST+TARGET", self.last_idx,self.target_idx)
         if self.last_idx > self.target_idx:
+            self.is_at_goal = False
             ai = self.pid_control(self.target_speed, self.state.xVel)
             di, self.target_idx = self.stanley_control()
             
@@ -284,4 +284,7 @@ class StanleySteering:
             #     plt.grid(True)
             #     plt.title("Speed[km/h]:" + str(self.state.xVel * 3.6)[:4])
             #     plt.pause(0.001)
+        else:
+            self.is_at_goal = True
+            
         return desired

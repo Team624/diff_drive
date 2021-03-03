@@ -187,25 +187,8 @@ class GoToGoalNode:
             msg.data = True
             self.goal_achieved_pub.publish(msg)
 
-            self.send_velocity(0, 0)
-            
-            if len(self.goal_array) > 0:
-                #self.bool_array[self.goal_index] = True
-                bool_data = BoolArray()
-                bool_data.bools = self.bool_array
-                self.waypoints_achieved_pub.publish(bool_data)
-
-            # For the seq of goal path
-            if (len(self.goal_array) -1 == self.goal_index or len(self.goal_array) == 0):
-                self.goal_array = []
-                self.goal_index = 1
-                self.bool_array = []
-                self.path_achieved_pub.publish(msg)
-
-                # Makes sure that the robot does not remember and prev msgs (bug)
-                self.send_velocity(0, 0)
-            else:
-                self.goal_index += 1
+            # if self.controller.reset():
+            #     self.send_velocity(0,0)
 
     def send_velocity(self, xVel, thetaVel):
         """ Publishes the cmd vel topic """
@@ -237,6 +220,9 @@ class GoToGoalNode:
     
     def on_path(self, path):
         """ Creates a new path to be followed """
+        while (self.pose.x == 0 and self.pose.y == 0):
+            print("Waiting for reset pose")
+
         self.goal_array = [path.goals[len(path.goals) -1]]
         self.set_path_goal(self.goal_array[0])
 
@@ -248,7 +234,7 @@ class GoToGoalNode:
             ax.append(a.pose.position.x)
             ay.append(a.pose.position.y)
 
-        self.controller.set_path(ax = ax, ay = ay)
+        self.controller.set_path(self.pose, ax = ax, ay = ay)
 
         # Changes parameters for each goal
         self.controller.set_constants(path.constants.kP, path.constants.kA, path.constants.kB)
