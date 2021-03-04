@@ -64,7 +64,7 @@ class GoToGoalNode:
         self.goal_achieved_pub = rospy.Publisher('diff_drive/goal_achieved', Bool,
                                                  queue_size=1)
         self.path_achieved_pub = rospy.Publisher('diff_drive/path_achieved', Bool,
-                                                 queue_size=1)
+                                                 queue_size=10)
         self.waypoints_achieved_pub = rospy.Publisher('diff_drive/waypoints_achieved', BoolArray,
                                                  queue_size=1)
         self.dist_pub = rospy.Publisher('~distance_to_goal',
@@ -185,7 +185,7 @@ class GoToGoalNode:
             self.goal = None
             msg = Bool()
             msg.data = True
-            self.goal_achieved_pub.publish(msg)
+            self.path_achieved_pub.publish(msg)
 
             # if self.controller.reset():
             #     self.send_velocity(0,0)
