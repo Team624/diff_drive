@@ -18,7 +18,7 @@ from diff_drive.msg import GoalPath, BoolArray
 class GoToGoalNode:
 
     def __init__(self):
-        self.controller = stanley_steering.StanleySteering(show_animation=False)
+        self.controller = stanley_steering.StanleySteering()
 
         # This is a list of all the waypoints in the current path
         self.goal_array = []
@@ -234,10 +234,10 @@ class GoToGoalNode:
             ax.append(a.pose.position.x)
             ay.append(a.pose.position.y)
 
-        self.controller.set_path(self.pose, ax = ax, ay = ay)
+        self.controller.set_path(self.pose, self.vel, ax = ax, ay = ay)
 
         # Changes parameters for each goal
-        self.controller.set_constants(path.constants.kP, path.constants.kA, path.constants.kB)
+        self.controller.set_constants(path.constants.kP, path.constants.kB, path.constants.kA)
 
         self.controller.set_max_linear_speed(path.linear.max_linear_speed)
         self.controller.set_min_linear_speed(path.linear.min_linear_speed)
