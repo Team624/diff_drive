@@ -21,17 +21,15 @@ class State:
         self.v = v
         self.wheel_base = wheel_base
         self.rear_x = self.x - ((self.wheel_base / 2) * math.cos(self.yaw))
-        self.rear_y = self.y + ((self.wheel_base / 2) * math.sin(self.yaw))
+        self.rear_y = self.y - ((self.wheel_base / 2) * math.sin(self.yaw))
 
     def update(self, x, y, yaw, v):
         self.x = x
         self.y = y
         self.yaw = yaw
         self.v = v
-        print("YAW",self.yaw)
         self.rear_x = self.x - ((self.wheel_base / 2) * math.cos(self.yaw))
-        self.rear_y = self.y + ((self.wheel_base / 2) * math.sin(self.yaw))
-        print(self.rear_x, self.rear_y)
+        self.rear_y = self.y - ((self.wheel_base / 2) * math.sin(self.yaw))
 
     def calc_distance(self, point_x, point_y):
         dx = self.rear_x - point_x
@@ -44,6 +42,8 @@ class StanleySteering:
         self.Kp = Kp  # speed proportional gain
         self.Ka = Ka
         self.wheel_base = L  # [m] Wheel base of vehicle
+
+        self.start_th = 0
 
         self.look_ahead = look_ahead
 
@@ -85,6 +85,7 @@ class StanleySteering:
 
     def set_path(self, pose, vel, ax = [0,1], ay = [0,1]):
         self.state.update(pose.x,pose.y,pose.theta,vel)
+        self.start_th = pose.theta
 
         #  target course
         self.cx = ax
@@ -174,7 +175,6 @@ class StanleySteering:
         :return: (float)
         """
 
-        print(target,current,self.Kp)
         return self.Kp * (target - current)
 
     def normalize_angle(self, angle):
@@ -183,11 +183,11 @@ class StanleySteering:
         :param angle: (float)
         :return: (float) Angle in radian in [-pi, pi]
         """
-        while angle > np.pi:
-            angle -= 2.0 * np.pi
+        angle = angle % (math.pi*2)
+        angle = (angle + 2* math.pi)% (math.pi*2)
 
-        while angle < -np.pi:
-            angle += 2.0 * np.pi
+        if angle > math.pi:
+            angle -= math.pi * 2
 
         return angle
 
@@ -197,7 +197,6 @@ class StanleySteering:
         if pind >= ind:
             ind = pind
 
-        print(ind)
         if ind < len(trajectory.cx):
             tx = trajectory.cx[ind]
             ty = trajectory.cy[ind]
@@ -205,17 +204,20 @@ class StanleySteering:
             tx = trajectory.cx[-1]
             ty = trajectory.cy[-1]
             ind = len(trajectory.cx) - 1
-        print("after",ind)
-        alpha = math.atan2(ty - state.rear_y, tx - state.rear_x) - state.yaw
+        # How much it needs to turn in radians
+        if self.direction == -1 and ((abs(self.start_th) > math.pi/2.0 and abs(self.state.yaw) < math.pi/2.0) or (abs(self.start_th) < math.pi/2.0 and abs(self.state.yaw) > math.pi/2.0)):
+            alpha = self.normalize_angle(self.normalize_angle(math.atan2(ty - state.rear_y, tx - state.rear_x)) - self.normalize_angle(state.yaw))
+        else:      
+            alpha = self.normalize_angle(self.normalize_angle(math.atan2(ty - state.rear_y, tx - state.rear_x)) - self.normalize_angle(state.yaw))
 
         delta = math.atan2(2.0 * self.wheel_base * math.sin(alpha) / Lf, 1.0)
+
+        print(state.yaw)
 
         return delta, ind
 
     def get_velocity(self, pose, vel):
         self.state.update(pose.x,pose.y,pose.theta,vel)
-
-        print("LAST+TARGET", self.last_idx, self.target_idx)
 
         desired = Pose()
         if self.last_idx > self.target_idx:
@@ -227,7 +229,10 @@ class StanleySteering:
                 self.state, self.target_course, self.target_idx)
 
             desired.xVel = self.state.v + ai
-            desired.thetaVel = self.state.v / self.wheel_base * np.tan(di)
+
+    
+            desired.thetaVel = (self.state.v) / self.wheel_base * np.tan(di)
+
         else:
             self.is_at_goal = True
 
@@ -267,7 +272,6 @@ class TargetCourse:
 
         Lf = k * abs(state.v) + look_ahead  # update look ahead distance
 
-        print(state.calc_distance(self.cx[ind], self.cy[ind]))
         #search look ahead target point index
         while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
             if (ind + 1) >= len(self.cx):
