@@ -23,13 +23,17 @@ class State:
         self.rear_x = self.x - ((self.wheel_base / 2) * math.cos(self.yaw))
         self.rear_y = self.y - ((self.wheel_base / 2) * math.sin(self.yaw))
 
-    def update(self, x, y, yaw, v):
+    def update(self, x, y, yaw, v, is_backward = 1):
         self.x = x
         self.y = y
         self.yaw = yaw
         self.v = v
-        self.rear_x = self.x - ((self.wheel_base / 2) * math.cos(self.yaw))
-        self.rear_y = self.y - ((self.wheel_base / 2) * math.sin(self.yaw))
+        if is_backward == -1:
+            self.rear_x = self.x - ((self.wheel_base / 2) * math.cos(self.yaw-math.pi))
+            self.rear_y = self.y - ((self.wheel_base / 2) * math.sin(self.yaw-math.pi))
+        else:
+            self.rear_x = self.x - ((self.wheel_base / 2) * math.cos(self.yaw))
+            self.rear_y = self.y - ((self.wheel_base / 2) * math.sin(self.yaw))
 
     def calc_distance(self, point_x, point_y):
         dx = self.rear_x - point_x
@@ -233,7 +237,7 @@ class StanleySteering:
         return delta, ind
 
     def get_velocity(self, pose, vel):
-        self.state.update(pose.x,pose.y,pose.theta,vel)
+        self.state.update(pose.x,pose.y,pose.theta,vel, is_backward = self.direction)
 
         desired = Pose()
         if self.last_idx > self.target_idx:
@@ -267,11 +271,7 @@ class TargetCourse:
         # To speed up nearest point search, doing it at only first time.
         print("old", self.old_nearest_point_index)
         if self.old_nearest_point_index is None:
-            # search nearest point index
-            dx = [state.rear_x - icx for icx in self.cx]
-            dy = [state.rear_y - icy for icy in self.cy]
-            d = np.hypot(dx, dy)
-            ind = np.argmin(d)
+            ind = 0
             self.old_nearest_point_index = ind
         else:
             ind = self.old_nearest_point_index
@@ -290,8 +290,6 @@ class TargetCourse:
 
         Lf = k * abs(state.v) + look_ahead  # update look ahead distance
 
-        print(Lf,state.calc_distance(self.cx[ind], self.cy[ind]))
-
         #search look ahead target point index
         while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
             if (ind + 1) >= len(self.cx):
@@ -299,9 +297,9 @@ class TargetCourse:
             ind += 1
 
         if ind == len(self.cx)-1 and state.calc_distance(self.cx[ind], self.cy[ind]) > 0.3:
+            print(state.calc_distance(self.cx[ind], self.cy[ind]))
             ind = len(self.cx)-2
             self.old_nearest_point_index = len(self.cx)-2
 
-        print(ind)
         self.old_nearest_point_index = ind
         return ind, Lf
