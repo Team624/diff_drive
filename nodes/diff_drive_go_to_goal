@@ -72,6 +72,17 @@ class GoToGoalNode:
         self.twist_pub = rospy.Publisher('cmd_vel',
                                          Twist, queue_size=10)
 
+        self.test_alpha = rospy.Publisher('test/alpha',
+                                        Float32, queue_size=10)
+        self.test_delta = rospy.Publisher('test/delta',
+                                        Float32, queue_size=10)
+        self.test_theta_vel = rospy.Publisher('test/theta_vel',
+                                        Float32, queue_size=10)
+        self.test_robot_yaw = rospy.Publisher('test/robot_yaw',
+                                        Float32, queue_size=10)
+        self.test_goal_yaw = rospy.Publisher('test/goal_yaw',
+                                        Float32, queue_size=10)
+
         # Set parameters
         rate = rospy.get_param('~rate', 20.0)
         self.rate = rospy.Rate(rate)
@@ -173,6 +184,18 @@ class GoToGoalNode:
         self.dist_pub.publish(d)
 
         self.send_velocity(desired.xVel, desired.thetaVel)
+        
+        test = Float32()
+        test.data = self.controller.test_alpha
+        self.test_alpha.publish(test)
+        test.data = self.controller.test_delta
+        self.test_delta.publish(test)
+        test.data = self.controller.test_theta_vel
+        self.test_theta_vel.publish(test)
+        test.data = self.controller.test_robot_yaw
+        self.test_robot_yaw.publish(test)
+        test.data = self.controller.test_goal_yaw
+        self.test_goal_yaw.publish(test)
 
         if (len(self.goal_array) -1 == self.goal_index):
             last_goal = True

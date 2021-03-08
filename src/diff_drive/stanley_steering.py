@@ -83,13 +83,22 @@ class StanleySteering:
         self.within_linear_tolerance = False
         self.within_angular_tolerance = False
 
+        self.test_alpha = 0
+        self.test_delta = 0
+        self.test_theta_vel = 0
+        self.test_robot_yaw = 0
+        self.test_goal_yaw = 0
+
     def set_path(self, pose, vel, ax = [0,1], ay = [0,1]):
         self.state.update(pose.x,pose.y,pose.theta,vel)
         self.start_th = pose.theta
 
+        self.cx, self.cy, self.cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+            ax, ay, ds=0.1)
+
         #  target course
-        self.cx = ax
-        self.cy = ay
+        # self.cx = ax
+        # self.cy = ay
 
         # self.cx.append(self.cx[len(self.cx)-1])
         # self.cy.append(self.cy[len(self.cy)-1])
@@ -205,14 +214,21 @@ class StanleySteering:
             ty = trajectory.cy[-1]
             ind = len(trajectory.cx) - 1
         # How much it needs to turn in radians
-        if self.direction == -1 and ((abs(self.start_th) > math.pi/2.0 and abs(self.state.yaw) < math.pi/2.0) or (abs(self.start_th) < math.pi/2.0 and abs(self.state.yaw) > math.pi/2.0)):
+        #if self.direction == -1 and ((abs(self.start_th) > math.pi/2.0 and abs(self.state.yaw) < math.pi/2.0) or (abs(self.start_th) < math.pi/2.0 and abs(self.state.yaw) > math.pi/2.0)):
+        if (self.direction == -1):
+            alpha = self.normalize_angle(self.normalize_angle(math.atan2(ty - state.rear_y, tx - state.rear_x)) - self.normalize_angle(state.yaw - math.pi))
+            self.test_robot_yaw = tx
+            self.test_goal_yaw = ty
+        else:
             alpha = self.normalize_angle(self.normalize_angle(math.atan2(ty - state.rear_y, tx - state.rear_x)) - self.normalize_angle(state.yaw))
-        else:      
-            alpha = self.normalize_angle(self.normalize_angle(math.atan2(ty - state.rear_y, tx - state.rear_x)) - self.normalize_angle(state.yaw))
+            self.test_robot_yaw = tx
+            self.test_goal_yaw = ty
 
         delta = math.atan2(2.0 * self.wheel_base * math.sin(alpha) / Lf, 1.0)
 
-        print(state.yaw)
+        self.test_delta = delta
+        self.test_alpha = alpha
+
 
         return delta, ind
 
@@ -231,7 +247,8 @@ class StanleySteering:
             desired.xVel = self.state.v + ai
 
     
-            desired.thetaVel = (self.state.v) / self.wheel_base * np.tan(di)
+            desired.thetaVel = abs(self.state.v) / self.wheel_base * np.tan(di)
+            self.test_theta_vel = abs(self.state.v) / self.wheel_base * np.tan(di)
 
         else:
             self.is_at_goal = True
@@ -248,6 +265,7 @@ class TargetCourse:
     def search_target_index(self, state, k, Ka, look_ahead):
 
         # To speed up nearest point search, doing it at only first time.
+        print("old", self.old_nearest_point_index)
         if self.old_nearest_point_index is None:
             # search nearest point index
             dx = [state.rear_x - icx for icx in self.cx]
@@ -272,6 +290,8 @@ class TargetCourse:
 
         Lf = k * abs(state.v) + look_ahead  # update look ahead distance
 
+        print(Lf,state.calc_distance(self.cx[ind], self.cy[ind]))
+
         #search look ahead target point index
         while Lf > state.calc_distance(self.cx[ind], self.cy[ind]):
             if (ind + 1) >= len(self.cx):
@@ -281,5 +301,7 @@ class TargetCourse:
         if ind == len(self.cx)-1 and state.calc_distance(self.cx[ind], self.cy[ind]) > 0.3:
             ind = len(self.cx)-2
             self.old_nearest_point_index = len(self.cx)-2
-        
+
+        print(ind)
+        self.old_nearest_point_index = ind
         return ind, Lf
