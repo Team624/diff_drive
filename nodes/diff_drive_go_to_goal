@@ -5,7 +5,7 @@ import rospy
 from math import pi, asin, acos
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovarianceStamped
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from std_msgs.msg import Float32, Bool
 import actionlib
 
@@ -71,6 +71,9 @@ class GoToGoalNode:
                                         Float32, queue_size=10)
         self.twist_pub = rospy.Publisher('cmd_vel',
                                          Twist, queue_size=10)
+
+        self.path_pub = rospy.Publisher('/diff_drive/path',
+                                         Path, queue_size=10)
 
         self.test_alpha = rospy.Publisher('test/alpha',
                                         Float32, queue_size=10)
@@ -252,10 +255,19 @@ class GoToGoalNode:
         # Creates path
         ax = []
         ay = []
-
+        path_msg = Path()
+        path_msg.header.frame_id = "map"
+        poses = []
         for a in path.goals:
+            pose = PoseStamped()
+            pose.pose = a.pose
+            poses.append(pose)
+
             ax.append(a.pose.position.x)
             ay.append(a.pose.position.y)
+
+        path_msg.poses = poses
+        self.path_pub.publish(path_msg)
 
         self.controller.set_path(self.pose, self.vel, ax = ax, ay = ay)
 

@@ -112,7 +112,7 @@ class StanleySteering:
 
         #  target course
         self.target_course = TargetCourse(self.cx, self.cy)
-        self.target_idx, _ = self.target_course.search_target_index(self.state, self.k, self.Ka, self.look_ahead)
+        self.target_idx, _ = self.target_course.search_target_index(self.state, self.k, self.linear_tolerance_outer, self.look_ahead)
     # Parameters
     def set_constants(self, Kp, k, Ka):
         self.Kp = Kp
@@ -205,7 +205,7 @@ class StanleySteering:
         return angle
 
     def pure_pursuit_steer_control(self, state, trajectory, pind):
-        ind, Lf = trajectory.search_target_index(state, self.k, self.Ka, self.look_ahead)
+        ind, Lf = trajectory.search_target_index(state, self.k, self.linear_tolerance_outer, self.look_ahead)
 
         if pind >= ind:
             ind = pind
@@ -228,7 +228,7 @@ class StanleySteering:
             self.test_robot_yaw = tx
             self.test_goal_yaw = ty
 
-        delta = math.atan2(2.0 * self.wheel_base * math.sin(alpha) / Lf, 1.0)
+        delta = math.atan2(2.0 * self.wheel_base * math.sin(alpha) / self.Ka, 1.0)
 
         self.test_delta = delta
         self.test_alpha = alpha
@@ -255,6 +255,10 @@ class StanleySteering:
             self.test_theta_vel = abs(self.state.v) / self.wheel_base * np.tan(di)
 
         else:
+            if (self.ignore_angular_tolerance):
+                ai = self.pid_control(self.max_linear_speed, self.state.v)
+                desired.xVel = self.state.v + ai
+
             self.is_at_goal = True
 
         return desired
@@ -266,7 +270,7 @@ class TargetCourse:
         self.cy = cy
         self.old_nearest_point_index = None
 
-    def search_target_index(self, state, k, Ka, look_ahead):
+    def search_target_index(self, state, k, linear_tol, look_ahead):
 
         # To speed up nearest point search, doing it at only first time.
         print("old", self.old_nearest_point_index)
@@ -296,10 +300,9 @@ class TargetCourse:
                 break  # not exceed goal
             ind += 1
 
-        if ind == len(self.cx)-1 and state.calc_distance(self.cx[ind], self.cy[ind]) > 0.3:
+        if state.calc_distance(self.cx[len(self.cx)-1], self.cy[len(self.cx)-1]) < linear_tol:
             print(state.calc_distance(self.cx[ind], self.cy[ind]))
-            ind = len(self.cx)-2
-            self.old_nearest_point_index = len(self.cx)-2
+            ind = len(self.cx)-1
 
         self.old_nearest_point_index = ind
         return ind, Lf
